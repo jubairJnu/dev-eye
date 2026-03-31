@@ -4,6 +4,7 @@
     "": {
       "name": "dev-eye",
       "dependencies": {
+        "@tauri-apps/api": "^1",
         "lucide-react": "^1.7.0",
         "motion": "^12.38.0",
         "next": "16.2.1",
@@ -217,6 +218,8 @@
     "@tailwindcss/oxide-win32-x64-msvc": ["@tailwindcss/oxide-win32-x64-msvc@4.2.2", "", { "os": "win32", "cpu": "x64" }, "sha512-1T/37VvI7WyH66b+vqHj/cLwnCxt7Qt3WFu5Q8hk65aOvlwAhs7rAp1VkulBJw/N4tMirXjVnylTR72uI0HGcA=="],
 
     "@tailwindcss/postcss": ["@tailwindcss/postcss@4.2.2", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "@tailwindcss/node": "4.2.2", "@tailwindcss/oxide": "4.2.2", "postcss": "^8.5.6", "tailwindcss": "4.2.2" } }, "sha512-n4goKQbW8RVXIbNKRB/45LzyUqN451deQK0nzIeauVEqjlI49slUlgKYJM2QyUzap/PcpnS7kzSUmPb1sCRvYQ=="],
+
+    "@tauri-apps/api": ["@tauri-apps/api@1.6.0", "", {}, "sha512-rqI++FWClU5I2UBp4HXFvl+sBWkdigBkxnpJDQUWttNyG7IZP4FwQGhTNL5EOw0vI8i6eSAJ5frLqO7n7jbJdg=="],
 
     "@tauri-apps/cli": ["@tauri-apps/cli@1.0.0", "", { "optionalDependencies": { "@tauri-apps/cli-darwin-arm64": "1.0.0", "@tauri-apps/cli-darwin-x64": "1.0.0", "@tauri-apps/cli-linux-arm-gnueabihf": "1.0.0", "@tauri-apps/cli-linux-arm64-gnu": "1.0.0", "@tauri-apps/cli-linux-arm64-musl": "1.0.0", "@tauri-apps/cli-linux-x64-gnu": "1.0.0", "@tauri-apps/cli-linux-x64-musl": "1.0.0", "@tauri-apps/cli-win32-ia32-msvc": "1.0.0", "@tauri-apps/cli-win32-x64-msvc": "1.0.0" }, "bin": { "tauri": "tauri.js" } }, "sha512-4eHnk3p0xnCXd9Zel3kLvdiiSURnN98GMFvWUAdirm5AjyOjcx8TIET/jqRYmYKE5yd+LMQqYMUfHRwA6JJUkg=="],
 

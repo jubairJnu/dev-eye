@@ -12,6 +12,10 @@ import {
   TodayStatsCard,
 } from "./components/StatsCards";
 
+
+import { sendNotification, isPermissionGranted, requestPermission } from "@tauri-apps/api/notification";
+import { appWindow } from "@tauri-apps/api/window";
+
 const TWENTY_MIN = 20 * 60;
 
 export default function HomePage() {
@@ -42,8 +46,8 @@ export default function HomePage() {
     if (!isRunning) return;
 
     if (timeLeft <= 0) {
-      setShowBreak(true);
       setTimeLeft(TWENTY_MIN);
+      handleBreak();
       return;
     }
 
@@ -52,6 +56,7 @@ export default function HomePage() {
     }, 1000);
 
     return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, timeLeft]);
 
   // ▶ Start
@@ -62,6 +67,37 @@ export default function HomePage() {
   // ⏸ Stop
   const handleStop = () => {
     setIsRunning(false);
+  };
+
+  // 🔔 Break handler — fires when 20-min timer hits 0
+  const handleBreak = async () => {
+    setShowBreak(true);
+    setIsRunning(false);
+
+    // 1️⃣ Bring app window above all other apps
+    await appWindow.setAlwaysOnTop(true);
+    await appWindow.show();
+    await appWindow.setFocus();
+
+    // 2️⃣ Send system notification
+    try {
+      let granted = await isPermissionGranted();
+      if (!granted) {
+        const permission = await requestPermission();
+        granted = permission === "granted";
+      }
+      if (granted) {
+        sendNotification({ title: "👁️ Time for a Break!", body: "20 minutes done — rest your eyes for 20 seconds." });
+      }
+    } catch (e) {
+      console.warn("Notification error:", e);
+    }
+  };
+
+  // 🔁 Close break modal + reset alwaysOnTop
+  const handleBreakClose = async () => {
+    setShowBreak(false);
+    await appWindow.setAlwaysOnTop(false);
   };
 
   return (
@@ -99,7 +135,7 @@ export default function HomePage() {
           {/* Left Column: Primary Focus */}
           <div className="flex-1 space-y-10">
             {showBreak ? (
-              <BreakModal onClose={() => setShowBreak(false)} />
+              <BreakModal onClose={handleBreakClose} />
             ) : (
               <TimerCard
                 timeLeft={timeLeft}
