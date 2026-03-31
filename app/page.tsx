@@ -44,6 +44,38 @@ const createDefaultStats = (): StatsState => ({
 
 const getTodayString = () => new Date().toISOString().split("T")[0];
 
+const getStoredTimerState = () => {
+  if (typeof window === "undefined") {
+    return {
+      isRunning: false,
+      timeLeft: TWENTY_MIN,
+    };
+  }
+
+  const saved = localStorage.getItem("deveye-state");
+  if (!saved) {
+    return {
+      isRunning: false,
+      timeLeft: TWENTY_MIN,
+    };
+  }
+
+  const data = JSON.parse(saved);
+  return {
+    isRunning: Boolean(data.isRunning),
+    timeLeft: typeof data.timeLeft === "number" ? data.timeLeft : TWENTY_MIN,
+  };
+};
+
+const getStoredStats = (): StatsState => {
+  if (typeof window === "undefined") {
+    return createDefaultStats();
+  }
+
+  const savedStats = localStorage.getItem(STATS_STORAGE_KEY);
+  return savedStats ? JSON.parse(savedStats) : createDefaultStats();
+};
+
 const ensureTodayData = (stats: StatsState, date: string) => {
   let todayData = stats.dailyData.find((entry) => entry.date === date);
 
@@ -61,26 +93,14 @@ const ensureTodayData = (stats: StatsState, date: string) => {
 };
 
 export default function HomePage() {
-  const [isRunning, setIsRunning] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(TWENTY_MIN);
+  const [isRunning, setIsRunning] = useState(
+    () => getStoredTimerState().isRunning,
+  );
+  const [timeLeft, setTimeLeft] = useState(
+    () => getStoredTimerState().timeLeft,
+  );
   const [showBreak, setShowBreak] = useState(false);
-  const [stats, setStats] = useState<StatsState>(createDefaultStats);
-  const [isCloseClick, setIsCloseClick] = useState(false);
-
-  // 🔁 Load from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("deveye-state");
-    if (saved) {
-      const data = JSON.parse(saved);
-      setIsRunning(data.isRunning);
-      setTimeLeft(data.timeLeft);
-    }
-
-    const savedStats = localStorage.getItem(STATS_STORAGE_KEY);
-    if (savedStats) {
-      setStats(JSON.parse(savedStats));
-    }
-  }, []);
+  const [stats, setStats] = useState<StatsState>(getStoredStats);
 
   // 💾 Save state
   useEffect(() => {
@@ -94,40 +114,15 @@ export default function HomePage() {
     localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(stats));
   }, [stats]);
 
-  // ⏱️ Main timer
-  useEffect(() => {
-    if (!isRunning) return;
-
-    if (timeLeft <= 0) {
-      setTimeLeft(TWENTY_MIN);
-      handleBreak();
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setTimeLeft((t) => t - 1);
-      setStats((currentStats) => {
-        const nextStats = structuredClone(currentStats);
-        const todayData = ensureTodayData(nextStats, getTodayString());
-        todayData.totalScreenTime += 1;
-        return nextStats;
-      });
-    }, 1000);
-
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRunning, timeLeft]);
-
   // ▶ Start
-  const handleStart = () => {
+  function handleStart() {
     setIsRunning(true);
-  };
+  }
 
   // 🔔 Break handler — fires when 20-min timer hits 0
-  const handleBreak = async () => {
+  async function handleBreak() {
     setShowBreak(true);
     setIsRunning(false);
-    updateStats("taken");
 
     // 1️⃣ Bring app window above all other apps
     await appWindow.setAlwaysOnTop(true);
@@ -151,17 +146,27 @@ export default function HomePage() {
     } catch (e) {
       console.warn("Notification error:", e);
     }
-  };
+  }
 
-  // 🔁 Close break modal + reset alwaysOnTop
-  const handleBreakClose = async () => {
+  // 🔁 Close break modal + reset window state
+  async function closeBreakModal() {
     setShowBreak(false);
     setIsRunning(true);
     await appWindow.setFullscreen(false);
     await appWindow.setAlwaysOnTop(false);
-  };
+  }
 
-  const updateStats = (result: "taken" | "missed") => {
+  async function handleBreakComplete() {
+    updateStats("taken");
+    await closeBreakModal();
+  }
+
+  async function handleBreakMissed() {
+    updateStats("missed");
+    await closeBreakModal();
+  }
+
+  function updateStats(result: "taken" | "missed") {
     const todayStr = getTodayString();
 
     setStats((currentStats) => {
@@ -194,14 +199,37 @@ export default function HomePage() {
 
       return nextStats;
     });
-  };
+  }
 
-  const handleStop = () => {
+  function handleStop() {
     if (isRunning && timeLeft < TWENTY_MIN) {
       updateStats("missed");
     }
     setIsRunning(false);
-  };
+  }
+
+  // ⏱️ Main timer
+  useEffect(() => {
+    if (!isRunning) return;
+
+    const timer = setTimeout(() => {
+      if (timeLeft <= 1) {
+        setTimeLeft(TWENTY_MIN);
+        handleBreak();
+        return;
+      }
+
+      setTimeLeft((currentTime: number) => currentTime - 1);
+      setStats((currentStats) => {
+        const nextStats = structuredClone(currentStats);
+        const todayData = ensureTodayData(nextStats, getTodayString());
+        todayData.totalScreenTime += 1;
+        return nextStats;
+      });
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [isRunning, timeLeft]);
 
   const todayData = stats.dailyData.find(
     (entry) => entry.date === getTodayString(),
@@ -222,7 +250,10 @@ export default function HomePage() {
           {/* Left Column: Primary Focus */}
           <div className="flex-1 space-y-10">
             {showBreak ? (
-              <BreakModal onClose={handleBreakClose} />
+              <BreakModal
+                onComplete={handleBreakComplete}
+                onMissed={handleBreakMissed}
+              />
             ) : (
               <TimerCard
                 timeLeft={timeLeft}

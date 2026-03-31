@@ -5,10 +5,18 @@ import { useEffect, useRef, useState } from "react";
 import bgImage from "@/app/assest/bgImage.png";
 
 const BREAK_SECONDS = 20;
+const DONE_GRACE_SECONDS = 60;
 
-const BreakModal = ({ onClose }: { onClose: () => void }) => {
+const BreakModal = ({
+  onComplete,
+  onMissed,
+}: {
+  onComplete: () => void;
+  onMissed: () => void;
+}) => {
   const [seconds, setSeconds] = useState<number>(BREAK_SECONDS);
-  const [done, setDone] = useState<boolean>(false);
+  const [graceSeconds, setGraceSeconds] = useState<number>(DONE_GRACE_SECONDS);
+  const done = seconds <= 0;
 
   const tickBufRef = useRef<AudioBuffer | null>(null);
   const doneBufRef = useRef<AudioBuffer | null>(null);
@@ -62,12 +70,6 @@ const BreakModal = ({ onClose }: { onClose: () => void }) => {
   useEffect(() => {
     if (done) return;
 
-    if (seconds <= 0) {
-      setDone(true);
-      playBuffer(doneBufRef.current);
-      return;
-    }
-
     playBuffer(tickBufRef.current);
 
     const timer = setTimeout(() => {
@@ -76,6 +78,26 @@ const BreakModal = ({ onClose }: { onClose: () => void }) => {
 
     return () => clearTimeout(timer);
   }, [seconds, done]);
+
+  useEffect(() => {
+    if (!done) return;
+    playBuffer(doneBufRef.current);
+  }, [done]);
+
+  useEffect(() => {
+    if (!done) return;
+
+    if (graceSeconds <= 0) {
+      onMissed();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setGraceSeconds((current) => current - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [done, graceSeconds, onMissed]);
 
   // SVG ring math
   const r = 44;
@@ -275,10 +297,19 @@ const BreakModal = ({ onClose }: { onClose: () => void }) => {
             </div>
           </div>
 
+          {done && (
+            <p
+              className="text-[11px] font-semibold uppercase tracking-[0.16em]"
+              style={{ color: "var(--tertiary-container)" }}
+            >
+              Tap done within {graceSeconds}s
+            </p>
+          )}
+
           {/* Done button */}
           <button
             disabled={!done}
-            onClick={onClose}
+            onClick={onComplete}
             className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-bold tracking-wide transition-all duration-300"
             style={{
               background: done
@@ -302,6 +333,7 @@ const BreakModal = ({ onClose }: { onClose: () => void }) => {
 
           {/* Skip */}
           <button
+            onClick={onMissed}
             className="text-sm font-medium transition-colors"
             style={{ color: "var(--on-surface-variant)" }}
           >

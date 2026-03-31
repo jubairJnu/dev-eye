@@ -2,6 +2,9 @@
 
 import { LayoutDashboard, BarChart3, Settings, UserCircle } from "lucide-react";
 import { motion } from "motion/react";
+import Image from "next/image";
+import meImage from "@/app/assest/me.png";
+import Link from "next/link";
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, active: true },
@@ -48,20 +51,24 @@ export default function Sidebar({ handleStart }: { handleStart: () => void }) {
           Start Focus Session
         </motion.button>
 
-        <div className="flex items-center gap-3 mt-8 pt-6 border-t border-outline-variant/10">
+        <Link
+          href="https://www.linkedin.com/in/jubairabdullah/"
+          target="_blank"
+          className="flex items-center gap-3 mt-8 pt-6 border-t border-outline-variant/10"
+        >
           <div className="w-10 h-10 rounded-full bg-surface-highest overflow-hidden">
-            <img
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWCWla-vZqFXLPFwpWkIfjHYX6k0Ram7RpQPxZTRL11OZUc_NGWeFWIEbStUXCekPYtDzkIXF5eQzyoqSVam_ZVrh-Wpr4iDFXSDscg59hXV7z1EYk-ofKOORY0Za5tFISv3JqvNXlm6W3VkUdyHGHkN8h088n1rtGN8XBoU82Vu8xCPULcYaCFRvM7Oh-A2pWElU7rYnIOQA7uF77M-2gui3xftmO7pzXQSQvafLFghTFZTcGsA2y6AX15HtJjAa-SzOYUyD31alk"
-              alt="Alex Rivera"
+            <Image
+              src={meImage}
+              alt="Jubair Abdullah"
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
           </div>
           <div>
-            <p className="text-sm font-semibold">Alex Rivera</p>
-            <p className="text-xs text-on-surface-variant">Pro Tier</p>
+            <p className="text-sm font-semibold">Jubair Abdullah</p>
+            <p className="text-xs text-on-surface-variant">Developed By</p>
           </div>
-        </div>
+        </Link>
       </div>
     </aside>
   );
