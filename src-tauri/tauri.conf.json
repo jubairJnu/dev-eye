@@ -1,14 +1,30 @@
 {
-  "productName": "DevEye",
-  "version": "0.1.0",
-  "identifier": "com.nexist.deveye",
+  "package": {
+    "productName": "DevEye",
+    "version": "0.1.0"
+  },
   "build": {
     "beforeDevCommand": "bun run dev",
     "beforeBuildCommand": "bun run build",
-    "devUrl": "http://localhost:3000",
-    "frontendDist": "../out"
+    "devPath": "http://localhost:3000",
+    "distDir": "../out"
   },
-  "app": {
+  "tauri": {
+    "bundle": {
+      "active": true,
+      "targets": "all",
+      "identifier": "com.nexist.deveye",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ]
+    },
+    "allowlist": {
+      "all": true
+    },
     "windows": [
       {
         "title": "DevEye",
@@ -21,17 +37,5 @@
     "security": {
       "csp": null
     }
-  },
-  "bundle": {
-    "active": true,
-    "targets": "all",
-
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ]
   }
 }
