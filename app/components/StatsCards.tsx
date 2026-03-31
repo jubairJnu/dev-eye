@@ -4,7 +4,7 @@ export function StreakCard() {
   return (
     <div className="bg-surface-high p-8 rounded-[2rem] flex flex-col items-center text-center">
       <div className="w-16 h-16 bg-tertiary-container/10 rounded-2xl flex items-center justify-center mb-4">
-        <Flame className="text-tertiary-container" size={32} fill="currentColor" />
+        <Flame className="text-tertiary-container" size={32} fill="red" />
       </div>
       <h3 className="text-sm text-on-surface-variant font-medium uppercase tracking-widest">Current Streak</h3>
       <p className="text-5xl font-black mt-2 text-on-surface">

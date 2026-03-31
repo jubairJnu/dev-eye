@@ -98,7 +98,17 @@ export default function HomePage() {
         <div className="p-10 flex flex-col lg:flex-row gap-10 max-w-7xl mx-auto w-full">
           {/* Left Column: Primary Focus */}
           <div className="flex-1 space-y-10">
-            <TimerCard timeLeft={timeLeft} isRunning={isRunning} onStart={handleStart} onStop={handleStop} />
+            {showBreak ? (
+              <BreakModal onClose={() => setShowBreak(false)} />
+            ) : (
+              <TimerCard
+                timeLeft={timeLeft}
+                isRunning={isRunning}
+                onStart={handleStart}
+                onStop={handleStop}
+              />
+            )}
+
             <EyeHealthCard />
           </div>
 
