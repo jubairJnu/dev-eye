@@ -11,17 +11,56 @@ import {
   StreakCard,
   TodayStatsCard,
 } from "./components/StatsCards";
-
-
 import { sendNotification, isPermissionGranted, requestPermission } from "@tauri-apps/api/notification";
 import { appWindow } from "@tauri-apps/api/window";
 
 const TWENTY_MIN = 20 * 60;
+const STATS_STORAGE_KEY = "deveye-stats";
+
+type DailyStats = {
+  date: string;
+  breaksTaken: number;
+  breaksMissed: number;
+  totalScreenTime: number;
+};
+
+type StatsState = {
+  currentStreak: number;
+  longestStreak: number;
+  lastActiveDate: string | null;
+  dailyData: DailyStats[];
+};
+
+const createDefaultStats = (): StatsState => ({
+  currentStreak: 0,
+  longestStreak: 0,
+  lastActiveDate: null,
+  dailyData: [],
+});
+
+const getTodayString = () => new Date().toISOString().split("T")[0];
+
+const ensureTodayData = (stats: StatsState, date: string) => {
+  let todayData = stats.dailyData.find((entry) => entry.date === date);
+
+  if (!todayData) {
+    todayData = {
+      date,
+      breaksTaken: 0,
+      breaksMissed: 0,
+      totalScreenTime: 0,
+    };
+    stats.dailyData.push(todayData);
+  }
+
+  return todayData;
+};
 
 export default function HomePage() {
   const [isRunning, setIsRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(TWENTY_MIN);
   const [showBreak, setShowBreak] = useState(false);
+  const [stats, setStats] = useState<StatsState>(createDefaultStats);
 
   // 🔁 Load from localStorage
   useEffect(() => {
@@ -30,6 +69,11 @@ export default function HomePage() {
       const data = JSON.parse(saved);
       setIsRunning(data.isRunning);
       setTimeLeft(data.timeLeft);
+    }
+
+    const savedStats = localStorage.getItem(STATS_STORAGE_KEY);
+    if (savedStats) {
+      setStats(JSON.parse(savedStats));
     }
   }, []);
 
@@ -40,6 +84,10 @@ export default function HomePage() {
       JSON.stringify({ isRunning, timeLeft }),
     );
   }, [isRunning, timeLeft]);
+
+  useEffect(() => {
+    localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(stats));
+  }, [stats]);
 
   // ⏱️ Main timer
   useEffect(() => {
@@ -53,6 +101,12 @@ export default function HomePage() {
 
     const timer = setTimeout(() => {
       setTimeLeft((t) => t - 1);
+      setStats((currentStats) => {
+        const nextStats = structuredClone(currentStats);
+        const todayData = ensureTodayData(nextStats, getTodayString());
+        todayData.totalScreenTime += 1;
+        return nextStats;
+      });
     }, 1000);
 
     return () => clearTimeout(timer);
@@ -64,15 +118,11 @@ export default function HomePage() {
     setIsRunning(true);
   };
 
-  // ⏸ Stop
-  const handleStop = () => {
-    setIsRunning(false);
-  };
-
   // 🔔 Break handler — fires when 20-min timer hits 0
   const handleBreak = async () => {
     setShowBreak(true);
     setIsRunning(false);
+    updateStats("taken");
 
     // 1️⃣ Bring app window above all other apps
     await appWindow.setAlwaysOnTop(true);
@@ -100,31 +150,57 @@ export default function HomePage() {
     await appWindow.setAlwaysOnTop(false);
   };
 
+  const updateStats = (result: "taken" | "missed") => {
+    const todayStr = getTodayString();
+
+    setStats((currentStats) => {
+      const nextStats = structuredClone(currentStats);
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+      if (result === "taken") {
+        if (nextStats.lastActiveDate === yesterdayStr) {
+          nextStats.currentStreak += 1;
+        } else if (nextStats.lastActiveDate !== todayStr) {
+          nextStats.currentStreak = 1;
+        }
+
+        if (nextStats.currentStreak > nextStats.longestStreak) {
+          nextStats.longestStreak = nextStats.currentStreak;
+        }
+
+        nextStats.lastActiveDate = todayStr;
+      }
+
+      const todayData = ensureTodayData(nextStats, todayStr);
+
+      if (result === "taken") {
+        todayData.breaksTaken += 1;
+      } else {
+        todayData.breaksMissed += 1;
+      }
+
+      return nextStats;
+    });
+  };
+
+  const handleStop = () => {
+    if (isRunning && timeLeft < TWENTY_MIN) {
+      updateStats("missed");
+    }
+    setIsRunning(false);
+  };
+
+  const todayData =
+    stats.dailyData.find((entry) => entry.date === getTodayString()) ||
+    {
+      breaksTaken: 0,
+      breaksMissed: 0,
+      totalScreenTime: 0,
+    };
+
   return (
-    // <div className="p-6 text-white">
-    //   <h1 className="text-2xl mb-4">👁️ DevEye</h1>
-
-    //   {!isRunning ? (
-    //     <button onClick={handleStart} className="bg-blue-500 px-4 py-2 rounded">
-    //       ▶ Start
-    //     </button>
-    //   ) : (
-    //     <button
-    //       onClick={handleStop}
-    //       className="bg-yellow-500 px-4 py-2 rounded"
-    //     >
-    //       ⏸ Stop
-    //     </button>
-    //   )}
-
-    //   {/* Timer */}
-    //   <p className="mt-4 text-lg">
-    //     ⏱ {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}
-    //   </p>
-
-    //   {/* Break Modal */}
-    //   {showBreak && <BreakModal onClose={() => setShowBreak(false)} />}
-    // </div>
     <div className="min-h-screen bg-[#131b2e] flex">
       <Sidebar handleStart={handleStart} />
 
@@ -150,8 +226,15 @@ export default function HomePage() {
 
           {/* Right Column: Stats & Secondary Metrics */}
           <div className="w-full lg:w-96 space-y-6">
-            <StreakCard />
-            <TodayStatsCard />
+            <StreakCard
+              current={stats?.currentStreak || 0}
+              longest={stats?.longestStreak || 0}
+            />
+            <TodayStatsCard
+              breaksTaken={todayData.breaksTaken || 0}
+              breaksMissed={todayData.breaksMissed || 0}
+              totalScreenTime={todayData.totalScreenTime || 0}
+            />
             <ProTipCard />
           </div>
         </div>
