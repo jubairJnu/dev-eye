@@ -1,26 +1,175 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import bgImage from "@/app/assest/bgImage.png";
 
 const BREAK_SECONDS = 20;
 
 const BreakModal = () => {
-  const [seconds, setSeconds] = useState(BREAK_SECONDS);
-  const [done, setDone] = useState(false);
+  const [seconds, setSeconds] = useState<number>(BREAK_SECONDS);
+  const [done, setDone] = useState<boolean>(false);
 
+  // ✅ correct types
+  const tickBufRef = useRef<AudioBuffer | null>(null);
+  const doneBufRef = useRef<AudioBuffer | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // ⏳ Countdown
   useEffect(() => {
     if (done) return;
+
     if (seconds <= 0) {
       setDone(true);
+      playDoneSound();
       return;
     }
-    const timer = setTimeout(() => setSeconds((s) => s - 1), 1000);
+
+    playTickSound();
+
+    const timer = setTimeout(() => {
+      setSeconds((s) => s - 1);
+    }, 1000);
+
     return () => clearTimeout(timer);
   }, [seconds, done]);
 
+  // 🔓 Unlock audio (user gesture)
+  const unlock = async () => {
+    if (audioCtxRef.current) return;
+
+    const ctx = new AudioContext();
+    await ctx.resume();
+
+    audioCtxRef.current = ctx;
+
+    // 🔥 load buffers
+    const loadBuffer = async (url: string): Promise<AudioBuffer> => {
+      const res = await fetch(url);
+      const arrayBuf = await res.arrayBuffer();
+      return await ctx.decodeAudioData(arrayBuf);
+    };
+
+    tickBufRef.current = await loadBuffer("/click.mp3");
+    doneBufRef.current = await loadBuffer("/done.mp3");
+  };
+
+  // 👆 call unlock on user interaction
+  useEffect(() => {
+    const handler = () => {
+      unlock();
+      document.removeEventListener("click", handler);
+    };
+
+    document.addEventListener("click", handler);
+
+    return () => {
+      document.removeEventListener("click", handler);
+    };
+  }, []);
+
+  // 🔊 Tick sound
+  const playTickSound = () => {
+    if (!tickBufRef.current || !audioCtxRef.current) return;
+
+    const source = audioCtxRef.current.createBufferSource();
+    source.buffer = tickBufRef.current;
+    source.connect(audioCtxRef.current.destination);
+    source.start(0);
+  };
+
+  // 🔊 Done sound
+  const playDoneSound = () => {
+    if (!doneBufRef.current || !audioCtxRef.current) return;
+
+    const source = audioCtxRef.current.createBufferSource();
+    source.buffer = doneBufRef.current;
+    source.connect(audioCtxRef.current.destination);
+    source.start(0);
+  };
+
+  // useEffect(() => {
+  //   // All audio state lives inside this effect closure
+  //   let audioCtx: AudioContext | null = null;
+  //   let secondInterval: NodeJS.Timeout | null = null;
+  //   let timeout20Sec: NodeJS.Timeout | null = null;
+  //   let interval20Min: NodeJS.Timeout | null = null;
+  //   let initialized = false;
+
+  //   const playBuffer = (buf: AudioBuffer | null) => {
+  //     if (!buf || !audioCtx) return;
+  //     const source = audioCtx.createBufferSource();
+  //     source.buffer = buf;
+  //     source.connect(audioCtx.destination);
+  //     source.start(0);
+  //   };
+
+  //   const startProcess = () => {
+  //     // Clear any previous cycle before starting a new one
+  //     if (secondInterval) clearInterval(secondInterval);
+  //     if (timeout20Sec) clearTimeout(timeout20Sec);
+
+  //     secondInterval = setInterval(() => {
+  //       playBuffer(tickBufRef.current);
+  //     }, 1000);
+
+  //     timeout20Sec = setTimeout(() => {
+  //       if (secondInterval) clearInterval(secondInterval);
+  //       playBuffer(doneBufRef.current);
+  //     }, 20000);
+  //   };
+
+  //   // ✅ AudioContext is created INSIDE the user gesture — always unlocked
+  //   const unlock = async () => {
+  //     if (initialized) return;
+  //     initialized = true;
+
+  //     // Remove listeners right away so multiple clicks don't re-enter
+  //     document.removeEventListener("click", unlock);
+  //     document.removeEventListener("keydown", unlock);
+  //     document.removeEventListener("touchstart", unlock);
+
+  //     // Creating AudioContext inside a user gesture guarantees it is running
+  //     audioCtx = new AudioContext();
+
+  //     const loadBuffer = async (url: string): Promise<AudioBuffer> => {
+  //       const res = await fetch(url);
+  //       const arrayBuf = await res.arrayBuffer();
+  //       return audioCtx!.decodeAudioData(arrayBuf);
+  //     };
+
+  //     try {
+  //       const [tickBuf, doneBuf] = await Promise.all([
+  //         loadBuffer("/click.mp3"),
+  //         loadBuffer("/done.mp3"),
+  //       ]);
+  //       tickBufRef.current = tickBuf;
+  //       doneBufRef.current = doneBuf;
+
+  //       startProcess();
+  //       interval20Min = setInterval(() => startProcess(), 20 * 60 * 1000);
+  //     } catch (err) {
+  //       console.error("Audio load failed:", err);
+  //     }
+  //   };
+
+  //   document.addEventListener("click", unlock);
+  //   document.addEventListener("keydown", unlock);
+  //   document.addEventListener("touchstart", unlock);
+
+  //   return () => {
+  //     if (secondInterval) clearInterval(secondInterval);
+  //     if (timeout20Sec) clearTimeout(timeout20Sec);
+  //     if (interval20Min) clearInterval(interval20Min);
+  //     document.removeEventListener("click", unlock);
+  //     document.removeEventListener("keydown", unlock);
+  //     document.removeEventListener("touchstart", unlock);
+  //     audioCtx?.close();
+  //   };
+  // }, []);
+
   // SVG ring math
+
   const r = 44;
   const circumference = 2 * Math.PI * r;
   const progress = done ? 1 : (BREAK_SECONDS - seconds) / BREAK_SECONDS;
@@ -38,11 +187,11 @@ const BreakModal = () => {
             src={bgImage}
             alt="break background"
             fill
-            className="object-cover z-0 "
+            className="object-cover opacity-45 z-0 "
             priority
           />
           {/* dark gradient overlay */}
-          <div className="absolute inset-0 z-[1] bg-gradient-to-b from-black/30 via-black/60 to-[#171f33]" />
+          <div className="absolute inset-0  z-[1] bg-gradient-to-b from-black/30 via-black/60 to-[#171f33]" />
 
           {/* Eye icon */}
           <div className="relative z-10 flex flex-col items-center gap-3">
