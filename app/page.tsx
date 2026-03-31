@@ -11,7 +11,11 @@ import {
   StreakCard,
   TodayStatsCard,
 } from "./components/StatsCards";
-import { sendNotification, isPermissionGranted, requestPermission } from "@tauri-apps/api/notification";
+import {
+  sendNotification,
+  isPermissionGranted,
+  requestPermission,
+} from "@tauri-apps/api/notification";
 import { appWindow } from "@tauri-apps/api/window";
 
 const TWENTY_MIN = 20 * 60;
@@ -61,6 +65,7 @@ export default function HomePage() {
   const [timeLeft, setTimeLeft] = useState(TWENTY_MIN);
   const [showBreak, setShowBreak] = useState(false);
   const [stats, setStats] = useState<StatsState>(createDefaultStats);
+  const [isCloseClick, setIsCloseClick] = useState(false);
 
   // 🔁 Load from localStorage
   useEffect(() => {
@@ -110,7 +115,7 @@ export default function HomePage() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, timeLeft]);
 
   // ▶ Start
@@ -126,6 +131,7 @@ export default function HomePage() {
 
     // 1️⃣ Bring app window above all other apps
     await appWindow.setAlwaysOnTop(true);
+    await appWindow.setFullscreen(true);
     await appWindow.show();
     await appWindow.setFocus();
 
@@ -137,7 +143,10 @@ export default function HomePage() {
         granted = permission === "granted";
       }
       if (granted) {
-        sendNotification({ title: "👁️ Time for a Break!", body: "20 minutes done — rest your eyes for 20 seconds." });
+        sendNotification({
+          title: "👁️ Time for a Break!",
+          body: "20 minutes done — rest your eyes for 20 seconds.",
+        });
       }
     } catch (e) {
       console.warn("Notification error:", e);
@@ -147,6 +156,8 @@ export default function HomePage() {
   // 🔁 Close break modal + reset alwaysOnTop
   const handleBreakClose = async () => {
     setShowBreak(false);
+    setIsRunning(true);
+    await appWindow.setFullscreen(false);
     await appWindow.setAlwaysOnTop(false);
   };
 
@@ -192,13 +203,13 @@ export default function HomePage() {
     setIsRunning(false);
   };
 
-  const todayData =
-    stats.dailyData.find((entry) => entry.date === getTodayString()) ||
-    {
-      breaksTaken: 0,
-      breaksMissed: 0,
-      totalScreenTime: 0,
-    };
+  const todayData = stats.dailyData.find(
+    (entry) => entry.date === getTodayString(),
+  ) || {
+    breaksTaken: 0,
+    breaksMissed: 0,
+    totalScreenTime: 0,
+  };
 
   return (
     <div className="min-h-screen bg-[#131b2e] flex">
