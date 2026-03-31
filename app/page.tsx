@@ -11,12 +11,6 @@ import {
   StreakCard,
   TodayStatsCard,
 } from "./components/StatsCards";
-import {
-  sendNotification,
-  isPermissionGranted,
-  requestPermission,
-} from "@tauri-apps/api/notification";
-import { appWindow } from "@tauri-apps/api/window";
 
 const TWENTY_MIN = 20 * 60;
 const STATS_STORAGE_KEY = "deveye-stats";
@@ -92,6 +86,46 @@ const ensureTodayData = (stats: StatsState, date: string) => {
   return todayData;
 };
 
+const isBrowser = () => typeof window !== "undefined";
+
+async function focusTauriWindow() {
+  if (!isBrowser()) return;
+
+  const { appWindow } = await import("@tauri-apps/api/window");
+  await appWindow.setAlwaysOnTop(true);
+  await appWindow.setFullscreen(true);
+  await appWindow.show();
+  await appWindow.setFocus();
+}
+
+async function resetTauriWindow() {
+  if (!isBrowser()) return;
+
+  const { appWindow } = await import("@tauri-apps/api/window");
+  await appWindow.setFullscreen(false);
+  await appWindow.setAlwaysOnTop(false);
+}
+
+async function notifyBreakTime() {
+  if (!isBrowser()) return;
+
+  const { sendNotification, isPermissionGranted, requestPermission } =
+    await import("@tauri-apps/api/notification");
+
+  let granted = await isPermissionGranted();
+  if (!granted) {
+    const permission = await requestPermission();
+    granted = permission === "granted";
+  }
+
+  if (granted) {
+    sendNotification({
+      title: "👁️ Time for a Break!",
+      body: "20 minutes done — rest your eyes for 20 seconds.",
+    });
+  }
+}
+
 export default function HomePage() {
   const [isRunning, setIsRunning] = useState(
     () => getStoredTimerState().isRunning,
@@ -104,6 +138,7 @@ export default function HomePage() {
 
   // 💾 Save state
   useEffect(() => {
+    if (!isBrowser()) return;
     localStorage.setItem(
       "deveye-state",
       JSON.stringify({ isRunning, timeLeft }),
@@ -111,6 +146,7 @@ export default function HomePage() {
   }, [isRunning, timeLeft]);
 
   useEffect(() => {
+    if (!isBrowser()) return;
     localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(stats));
   }, [stats]);
 
@@ -125,24 +161,11 @@ export default function HomePage() {
     setIsRunning(false);
 
     // 1️⃣ Bring app window above all other apps
-    await appWindow.setAlwaysOnTop(true);
-    await appWindow.setFullscreen(true);
-    await appWindow.show();
-    await appWindow.setFocus();
+    await focusTauriWindow();
 
     // 2️⃣ Send system notification
     try {
-      let granted = await isPermissionGranted();
-      if (!granted) {
-        const permission = await requestPermission();
-        granted = permission === "granted";
-      }
-      if (granted) {
-        sendNotification({
-          title: "👁️ Time for a Break!",
-          body: "20 minutes done — rest your eyes for 20 seconds.",
-        });
-      }
+      await notifyBreakTime();
     } catch (e) {
       console.warn("Notification error:", e);
     }
@@ -152,8 +175,7 @@ export default function HomePage() {
   async function closeBreakModal() {
     setShowBreak(false);
     setIsRunning(true);
-    await appWindow.setFullscreen(false);
-    await appWindow.setAlwaysOnTop(false);
+    await resetTauriWindow();
   }
 
   async function handleBreakComplete() {
